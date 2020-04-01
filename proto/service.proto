@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package proto;
+package service;
 
 message DateRange {
     Period period_from = 1; //required
@@ -29,13 +29,10 @@ message CategoryResult {
 }
 
 service TicketService {
-    rpc GetScoresByTickets(Tickets) returns (TicketScores);
-}
-
-service DateRangeService {
+    rpc GetScoresByTickets(Tickets) returns (stream TicketScores);
+    rpc GetAggregatedCategory(DateRange) returns (stream Categories);
     rpc GetPeriodOverPeriod(DateRange) returns (PeriodChange);
     rpc GetOveralQuality(DateRange) returns (Quality);
-    rpc GetAggregatedCategory(DateRange) returns (Categories);
 }
 
 //Scores by ticket response
