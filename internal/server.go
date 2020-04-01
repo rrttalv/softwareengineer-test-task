@@ -3,7 +3,10 @@ package server
 import (
 	"context"
 	"fmt"
+	"log"
 	"net"
+
+	"github.com/mxk/go-sqlite/sqlite3"
 
 	"github.com/golang/protobuf/proto"
 
@@ -13,6 +16,7 @@ import (
 )
 
 type server struct {
+	Database *sqlite3.Conn
 }
 
 type Rating struct {
@@ -21,12 +25,19 @@ type Rating struct {
 }
 
 func main() {
-	listener, err := net.Listen("tcp", ":4040")
+	listener, err := net.Listen("tcp", ":8000")
 	if err != nil {
 		panic(err)
 	}
+	conn, dberr := sqlite3.Open("database.db")
+	if dberr != nil {
+		log.Println("Can't connect to database!")
+		panic(err)
+	}
+	server := &server{}
+	server.Database = conn
 	srv := grpc.NewServer()
-	service.RegisterTicketServiceServer(srv, &server{})
+	service.RegisterTicketServiceServer(srv, server)
 	reflection.Register(srv)
 	if serr := srv.Serve(listener); serr != nil {
 		panic(err)
@@ -34,6 +45,23 @@ func main() {
 }
 
 func (s *server) GetAggregatedCategory(filter *service.DateRange, stream service.TicketService_GetAggregatedCategoryServer) error {
+	pf := filter.PeriodFrom
+	pt := filter.PeriodTo
+	var weekly = false
+	//This sould run in go routines
+	//dateFrom := dateToString(pf.GetMonth(), pf.GetDay(), pf.GetYear())
+	//dateTo := dateToString(pt.GetMonth(), pt.GetDay(), pt.GetYear())
+	if pf.GetDay()-pt.GetDay() > 30 {
+		weekly = true
+	}
+	fmt.Println(weekly)
+	return nil
+}
+
+func (s *server) GetScoresByTickets(tickets *service.Tickets, stream service.TicketService_GetScoresByTicketsServer) error {
+	//ticketIDS := request.GetIds()
+	i := proto.Int32(1)
+	fmt.Print(i)
 	return nil
 }
 
@@ -43,13 +71,6 @@ func (s *server) GetOveralQuality(ctx context.Context, request *service.DateRang
 
 func (s *server) GetPeriodOverPeriod(ctx context.Context, request *service.DateRange) (*service.PeriodChange, error) {
 	return nil, nil
-}
-
-func (s *server) GetScoresByTickets(tickets *service.Tickets, stream service.TicketService_GetScoresByTicketsServer) error {
-	//ticketIDS := request.GetIds()
-	i := proto.Int32(1)
-	fmt.Print(i)
-	return nil
 }
 
 /*
@@ -72,4 +93,12 @@ func calculateRatingPrecentage(totalWeight int, ratings map[int]Rating) int {
 		finalRatingPrecentage += (ratingVal * 100) / int(totalWeight)
 	}
 	return finalRatingPrecentage
+}
+
+func dateToString(m int32, d int32, y int32) string {
+	var res string
+	res += fmt.Sprintf("%v-", y)
+	res += fmt.Sprintf("%v-", m)
+	res += fmt.Sprintf("%v", d)
+	return res
 }
