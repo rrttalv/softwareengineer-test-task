@@ -67,27 +67,23 @@ func (s *server) GetAggregatedCategory(filter *service.DateRange, stream service
 	}
 	monF, monT, dayF, dayT := filter.PeriodFrom.GetMonth(), filter.PeriodTo.GetMonth(), filter.PeriodFrom.GetDay(), filter.PeriodTo.GetDay()+1
 	smonF, smonT, sdayF, sdayT := parseDate(monF), parseDate(monT), parseDate(dayF), parseDate(dayT)
-	sqlGet := `SELECT ratings.id as rid,
-	ratings.created_at as RAD,
-	substr(ratings.created_at, 1, 10) as SRAD,
+	sqlGet := `SELECT substr(ratings.created_at, 1, 10) as SRAD,
 	rating_categories.name as Category,
 	ROUND((((ratings.rating * rating_categories.weight)*100)/(
 		SELECT val FROM vartable WHERE name = "tw"
-	))) as rtg,
-	ratings.rating,
-	rating_categories.weight
+	))) as rtg
 	from ratings 
 	LEFT JOIN rating_categories ON 
 	ratings.rating_category_id = rating_categories.id 
 	WHERE (
-		RAD BETWEEN DATE("` + fmt.Sprintf("%v-%v-%v", filter.PeriodFrom.GetYear(), smonF, sdayF) + `") 
+		ratings.created_at BETWEEN DATE("` + fmt.Sprintf("%v-%v-%v", filter.PeriodFrom.GetYear(), smonF, sdayF) + `") 
 		AND DATE("` + fmt.Sprintf("%v-%v-%v", filter.PeriodTo.GetYear(), smonT, sdayT) + `")
 		AND rating_categories.weight > 0 
 		AND rtg NOT NULL
 		AND ratings.rating > 0
 		)
-	GROUP BY Category, RAD
-	ORDER BY RAD`
+	GROUP BY Category, ratings.created_at
+	ORDER BY ratings.created_at`
 	rows, err := s.Database.Query(sqlGet)
 	if err != nil {
 		log.Println("here")
@@ -102,11 +98,7 @@ func (s *server) GetAggregatedCategory(filter *service.DateRange, stream service
 		var SRAD sql.NullString
 		var Category sql.NullString
 		var rtg sql.NullInt32
-		var RAD sql.NullTime
-		var rid sql.NullInt32
-		var rating sql.NullInt32
-		var weight sql.NullFloat64
-		e := rows.Scan(&rid, &RAD, &SRAD, &Category, &rtg, &rating, &weight)
+		e := rows.Scan(&SRAD, &Category, &rtg)
 		if e != nil {
 			log.Fatal(e)
 		}
@@ -128,9 +120,6 @@ func (s *server) GetAggregatedCategory(filter *service.DateRange, stream service
 				dailyCount[categoryString] = 1
 			}
 		}
-		fmt.Println(categoryString)
-		fmt.Println(dailyCount[categoryString])
-		log.Println("=============")
 		if prevStrDate != formattedDate && len(dailyResult[prevStrDate]) > 0 {
 			//Stream data back
 			//Total in range is used to divide the dailyResult and calucalte a precentage
