@@ -65,7 +65,7 @@ func (s *server) GetAggregatedCategory(filter *service.DateRange, stream service
 		log.Println("here!!")
 		return ierr
 	}
-	monF, monT, dayF, dayT := filter.PeriodFrom.GetMonth(), filter.PeriodTo.GetMonth(), filter.PeriodFrom.GetDay(), filter.PeriodTo.GetDay()
+	monF, monT, dayF, dayT := filter.PeriodFrom.GetMonth(), filter.PeriodTo.GetMonth(), filter.PeriodFrom.GetDay(), filter.PeriodTo.GetDay()+1
 	smonF, smonT, sdayF, sdayT := parseDate(monF), parseDate(monT), parseDate(dayF), parseDate(dayT)
 	sqlGet := `SELECT ratings.id as rid,
 	ratings.created_at as RAD,
@@ -94,10 +94,10 @@ func (s *server) GetAggregatedCategory(filter *service.DateRange, stream service
 		return err
 	}
 	var prevStrDate string = ""
-	var totalInRange = 0
 	cols, _ := rows.Columns()
 	log.Println(cols)
 	var dailyResult = make(map[string]map[string]int32)
+	var dailyCount = make(map[string]int)
 	for rows.Next() {
 		var SRAD sql.NullString
 		var Category sql.NullString
@@ -121,20 +121,23 @@ func (s *server) GetAggregatedCategory(filter *service.DateRange, stream service
 		g := dailyResult[formattedDate]
 		if g[categoryString] > 0 {
 			g[categoryString] += rtg.Int32
+			dailyCount[categoryString]++
 		} else {
 			g[categoryString] = rtg.Int32
+			if prevStrDate == formattedDate {
+				dailyCount[categoryString] = 1
+			}
 		}
-		fmt.Println(dailyResult[prevStrDate])
+		fmt.Println(categoryString)
+		fmt.Println(dailyCount[categoryString])
+		log.Println("=============")
 		if prevStrDate != formattedDate && len(dailyResult[prevStrDate]) > 0 {
-			fmt.Println(prevStrDate)
-			fmt.Println("=======")
-			log.Println(dailyResult[prevStrDate])
 			//Stream data back
 			//Total in range is used to divide the dailyResult and calucalte a precentage
 			cat := make([]*service.CategoryResult, 0)
 			//log.Println(dailyResult[srad])
 			for k, v := range dailyResult[prevStrDate] {
-				tot := int32(totalInRange)
+				tot := int32(dailyCount[k])
 				calc := int32(v / tot)
 				r := service.CategoryResult{
 					CategoryName: k,
@@ -146,12 +149,17 @@ func (s *server) GetAggregatedCategory(filter *service.DateRange, stream service
 			result := service.Categories{
 				Result: cat,
 			}
+			log.Println("=============")
+			fmt.Println("sent result")
+			fmt.Println("Daily count figures:")
+			fmt.Println(dailyCount)
+			log.Println("=============")
 			if err := stream.Send(&result); err != nil {
 				return err
+			} else {
+				dailyCount = make(map[string]int)
 			}
-			totalInRange = 0
 		}
-		totalInRange++
 		prevStrDate = formattedDate
 	}
 	return nil
