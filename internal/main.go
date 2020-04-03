@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"strconv"
 
 	"github.com/golang/protobuf/proto"
 	_ "github.com/mattn/go-sqlite3"
@@ -16,6 +17,7 @@ import (
 
 type server struct {
 	Database *sql.DB
+	Weight   int32
 }
 
 type Rating struct {
@@ -36,13 +38,15 @@ func main() {
 	server := &server{
 		Database: database,
 	}
-	_, ser := database.Exec(`DROP TABLE IF EXISTS vartable`)
-	if ser != nil {
-		panic(ser)
-	}
-	_, cerr := database.Exec(`CREATE TABLE vartable (name TEXT PRIMARY KEY, val INT)`)
-	if cerr != nil {
-		panic(cerr)
+	if r, dberr := database.Query(`SELECT sum(rating_categories.weight*5) FROM rating_categories`); dberr != nil {
+		panic(dberr)
+	} else {
+		var SM sql.NullString
+		if r.Next() {
+			r.Scan(&SM)
+			wSum, _ := strconv.ParseFloat(SM.String, 1)
+			server.Weight = int32(wSum)
+		}
 	}
 	srv := grpc.NewServer()
 	service.RegisterTicketServiceServer(srv, server)
@@ -60,18 +64,11 @@ func parseDate(date int32) string {
 }
 
 func (s *server) GetAggregatedCategory(filter *service.DateRange, stream service.TicketService_GetAggregatedCategoryServer) error {
-	_, ierr := s.Database.Exec(`INSERT OR REPLACE INTO vartable SELECT 'tw' AS name, sum(rating_categories.weight*5) AS val FROM rating_categories`)
-	if ierr != nil {
-		log.Println("here!!")
-		return ierr
-	}
 	monF, monT, dayF, dayT := filter.PeriodFrom.GetMonth(), filter.PeriodTo.GetMonth(), filter.PeriodFrom.GetDay(), filter.PeriodTo.GetDay()+1
 	smonF, smonT, sdayF, sdayT := parseDate(monF), parseDate(monT), parseDate(dayF), parseDate(dayT)
 	sqlGet := `SELECT substr(ratings.created_at, 1, 10) as SRAD,
 	rating_categories.name as Category,
-	ROUND((((ratings.rating * rating_categories.weight)*100)/(
-		SELECT val FROM vartable WHERE name = "tw"
-	))) as rtg
+	ROUND((((ratings.rating * rating_categories.weight)*100)/(` + fmt.Sprintf("%v", s.Weight) + `))) as rtg
 	from ratings 
 	LEFT JOIN rating_categories ON 
 	ratings.rating_category_id = rating_categories.id 
@@ -90,8 +87,6 @@ func (s *server) GetAggregatedCategory(filter *service.DateRange, stream service
 		return err
 	}
 	var prevStrDate string = ""
-	cols, _ := rows.Columns()
-	log.Println(cols)
 	var dailyResult = make(map[string]map[string]int32)
 	var dailyCount = make(map[string]int)
 	for rows.Next() {
@@ -138,6 +133,7 @@ func (s *server) GetAggregatedCategory(filter *service.DateRange, stream service
 			result := service.Categories{
 				Result: cat,
 			}
+			delete(dailyResult, prevStrDate)
 			log.Println("=============")
 			fmt.Println("sent result")
 			fmt.Println("Daily count figures:")
@@ -145,9 +141,8 @@ func (s *server) GetAggregatedCategory(filter *service.DateRange, stream service
 			log.Println("=============")
 			if err := stream.Send(&result); err != nil {
 				return err
-			} else {
-				dailyCount = make(map[string]int)
 			}
+			dailyCount = make(map[string]int)
 		}
 		prevStrDate = formattedDate
 	}

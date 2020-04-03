@@ -51,10 +51,9 @@ func main() {
 			if err != nil {
 				log.Fatal(err)
 			}
-			toUser += cat.String()
 			fmt.Println(toUser)
 		}
-		fmt.Println(toUser)
+		return
 	})
 
 	if err := router.Run(port); err != nil {
