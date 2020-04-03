@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"io"
 	"io/ioutil"
 	"log"
@@ -36,7 +35,6 @@ func main() {
 		if err != nil {
 			panic(err)
 		}
-		fmt.Println(dateRange.GetPeriodFrom())
 		stream, err := client.GetAggregatedCategory(context.Background(), dateRange)
 		if err != nil {
 			panic(err)
@@ -45,8 +43,7 @@ func main() {
 		for {
 			cat, err := stream.Recv()
 			if err == io.EOF {
-				log.Println("endd")
-				log.Println(cat)
+				log.Println("end")
 				break
 			}
 			if err != nil {
@@ -54,6 +51,34 @@ func main() {
 			}
 
 			results = append(results, cat)
+		}
+		ctx.JSON(http.StatusOK, gin.H{
+			"results": results,
+		})
+		return
+	})
+	router.POST("/byticket", func(ctx *gin.Context) {
+		dateRange := &service.DateRange{}
+		b, _ := ioutil.ReadAll(ctx.Request.Body)
+		err := json.Unmarshal(b, &dateRange)
+		if err != nil {
+			panic(err)
+		}
+		stream, err := client.GetScoresByTickets(context.Background(), dateRange)
+		if err != nil {
+			panic(err)
+		}
+		var results []*service.TicketScores
+		for {
+			tik, err := stream.Recv()
+			if err == io.EOF {
+				log.Println("end")
+				break
+			}
+			if err != nil {
+				log.Fatal(err)
+			}
+			results = append(results, tik)
 		}
 		ctx.JSON(http.StatusOK, gin.H{
 			"results": results,
