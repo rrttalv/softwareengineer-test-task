@@ -22,11 +22,6 @@ type server struct {
 	Weight   int32
 }
 
-type Rating struct {
-	Weight float64
-	Value  int
-}
-
 func main() {
 	listener, err := net.Listen("tcp", ":8000")
 	if err != nil {
@@ -144,7 +139,7 @@ func (s *server) GetAggregatedCategory(filter *service.DateRange, stream service
 				calc := int32(v / tot)
 				r := service.CategoryResult{
 					CategoryName: k,
-					Rating:       tot,
+					Ratings:      tot,
 					Score:        calc,
 				}
 				cat = append(cat, &r)
@@ -166,7 +161,7 @@ func (s *server) GetAggregatedCategory(filter *service.DateRange, stream service
 }
 
 func (s *server) GetScoresByTickets(tickets *service.Tickets, stream service.TicketService_GetScoresByTicketsServer) error {
-	//ticketIDS := request.GetIds()
+	//ticketIDS := tickets.GetIds()
 	i := proto.Int32(1)
 	fmt.Print(i)
 	return nil
@@ -186,7 +181,7 @@ func (s *server) GetPeriodOverPeriod(ctx context.Context, request *service.DateR
 	take the rating value and multiply it with it's weight, then divide the result by the
 	weights with maximum values which is 5 in our case.
 	finally return an int32 as precentage
-*/
+
 func calculateRatingPrecentage(totalWeight int, ratings map[int]Rating) int {
 	var finalRatingPrecentage = 0
 	for _, r := range ratings {
@@ -196,6 +191,7 @@ func calculateRatingPrecentage(totalWeight int, ratings map[int]Rating) int {
 	}
 	return finalRatingPrecentage
 }
+*/
 
 func dateToString(m int32, d int32, y int32) string {
 	var res string

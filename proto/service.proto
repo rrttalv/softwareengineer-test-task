@@ -24,7 +24,7 @@ message Categories {
 }
 message CategoryResult {
     string category_name = 1;
-    int32 rating = 2;
+    int32 ratings = 2;
     int32 score = 4;
 }
 
@@ -38,13 +38,8 @@ service TicketService {
 //Scores by ticket response
 //Returns an array of tickets which include ticket ID and categories
 message TicketScores {
-    repeated TicketValues scores = 1;
-}
-
-//Bytes are {category1: val1, categoryN: ....}
-message TicketValues {
     ID id = 1;
-    repeated bytes categories = 2;
+    repeated CategoryResult result = 2;
 }
 
 message ID {
