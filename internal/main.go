@@ -194,9 +194,9 @@ func (s *server) GetScoresByTickets(filter *service.DateRange, stream service.Ti
 				}
 				res.Result = append(res.Result, ctRes)
 			}
-			delete(ticketResult, ticketID)
+			delete(ticketResult, prevTicketID)
 			if err := stream.Send(&res); err != nil {
-				fmt.Println(err)
+				log.Println(err)
 				return err
 			}
 		}
