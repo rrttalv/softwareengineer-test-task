@@ -7,11 +7,9 @@ import (
 	"log"
 	"net"
 	"strconv"
-	"strings"
-	"unicode"
 
-	"github.com/golang/protobuf/proto"
 	_ "github.com/mattn/go-sqlite3"
+	"github.com/softwareengineer-test-task/internal/helper"
 	service "github.com/softwareengineer-test-task/proto"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
@@ -20,6 +18,7 @@ import (
 type server struct {
 	Database *sql.DB
 	Weight   int32
+	Helper   *helper.Helper
 }
 
 func main() {
@@ -34,6 +33,7 @@ func main() {
 	}
 	server := &server{
 		Database: database,
+		Helper:   &helper.Helper{},
 	}
 	if r, dberr := database.Query(`SELECT sum(rating_categories.weight*5) FROM rating_categories`); dberr != nil {
 		panic(dberr)
@@ -53,33 +53,8 @@ func main() {
 	}
 }
 
-func parseDate(date int32) string {
-	if date < 10 {
-		return fmt.Sprintf("0%v", date)
-	}
-	return fmt.Sprintf("%v", date)
-}
-
-func generateDate(date string) *service.Period {
-	f := func(c rune) bool {
-		return !unicode.IsLetter(c) && !unicode.IsNumber(c)
-	}
-	da := strings.FieldsFunc(date, f)
-	//We dont need to check for errors because we know the DB field structure
-	//Still should not be done in production though..
-	year, _ := strconv.Atoi(da[0])
-	month, _ := strconv.Atoi(da[1])
-	day, _ := strconv.Atoi(da[2])
-	return &service.Period{
-		Year:  int32(year),
-		Day:   int32(day),
-		Month: int32(month),
-	}
-}
-
 func (s *server) GetAggregatedCategory(filter *service.DateRange, stream service.TicketService_GetAggregatedCategoryServer) error {
-	monF, monT, dayF, dayT := filter.PeriodFrom.GetMonth(), filter.PeriodTo.GetMonth(), filter.PeriodFrom.GetDay(), filter.PeriodTo.GetDay()+1
-	smonF, smonT, sdayF, sdayT := parseDate(monF), parseDate(monT), parseDate(dayF), parseDate(dayT)
+	from, to := s.Helper.ParseDateFromFilter(filter)
 	sqlGet := `SELECT substr(ratings.created_at, 1, 10) as SRAD,
 	rating_categories.name as Category,
 	ROUND((((ratings.rating * rating_categories.weight)*100)/(` + fmt.Sprintf("%v", s.Weight) + `))) as rtg
@@ -87,8 +62,8 @@ func (s *server) GetAggregatedCategory(filter *service.DateRange, stream service
 	LEFT JOIN rating_categories ON 
 	ratings.rating_category_id = rating_categories.id 
 	WHERE (
-		ratings.created_at BETWEEN DATE("` + fmt.Sprintf("%v-%v-%v", filter.PeriodFrom.GetYear(), smonF, sdayF) + `") 
-		AND DATE("` + fmt.Sprintf("%v-%v-%v", filter.PeriodTo.GetYear(), smonT, sdayT) + `")
+		ratings.created_at BETWEEN DATE("` + from + `") 
+		AND DATE("` + to + `")
 		AND rating_categories.weight > 0 
 		AND rtg NOT NULL
 		AND ratings.rating > 0
@@ -101,13 +76,14 @@ func (s *server) GetAggregatedCategory(filter *service.DateRange, stream service
 		return err
 	}
 	var prevStrDate string = ""
+	//GO maps are hashmaps so the lookup time is O(1)
 	var dailyResult = make(map[string]map[string]int32)
 	var dailyCount = make(map[string]int)
 	for rows.Next() {
 		var SRAD sql.NullString
 		var Category sql.NullString
-		var rtg sql.NullInt32
-		e := rows.Scan(&SRAD, &Category, &rtg)
+		var rating sql.NullInt32
+		e := rows.Scan(&SRAD, &Category, &rating)
 		if e != nil {
 			log.Fatal(e)
 		}
@@ -121,17 +97,17 @@ func (s *server) GetAggregatedCategory(filter *service.DateRange, stream service
 		}
 		g := dailyResult[formattedDate]
 		if g[categoryString] > 0 {
-			g[categoryString] += rtg.Int32
+			g[categoryString] += rating.Int32
 			dailyCount[categoryString]++
 		} else {
-			g[categoryString] = rtg.Int32
+			g[categoryString] = rating.Int32
 			if prevStrDate == formattedDate {
 				dailyCount[categoryString] = 1
 			}
 		}
 		if prevStrDate != formattedDate && len(dailyResult[prevStrDate]) > 0 {
 			//Stream data back
-			//Total in range is used to divide the dailyResult and calucalte a precentage
+			//Total in range is used to divide the dailyResult and calculate a precentage
 			cat := make([]*service.CategoryResult, 0)
 			//log.Println(dailyResult[srad])
 			for k, v := range dailyResult[prevStrDate] {
@@ -144,7 +120,7 @@ func (s *server) GetAggregatedCategory(filter *service.DateRange, stream service
 				}
 				cat = append(cat, &r)
 			}
-			date := generateDate(prevStrDate)
+			date := s.Helper.GenerateClientDate(prevStrDate)
 			result := service.Categories{
 				Result: cat,
 				Date:   date,
@@ -160,10 +136,72 @@ func (s *server) GetAggregatedCategory(filter *service.DateRange, stream service
 	return nil
 }
 
-func (s *server) GetScoresByTickets(tickets *service.Tickets, stream service.TicketService_GetScoresByTicketsServer) error {
-	//ticketIDS := tickets.GetIds()
-	i := proto.Int32(1)
-	fmt.Print(i)
+func (s *server) GetScoresByTickets(filter *service.DateRange, stream service.TicketService_GetScoresByTicketsServer) error {
+	from, to := s.Helper.ParseDateFromFilter(filter)
+	sqlGet := `SELECT rating_categories.name as Category,
+	tickets.id AS TKTID,
+	ROUND((((ratings.rating * rating_categories.weight)*100)/(rating_categories.weight*5))) as SCORE	
+	from ratings
+	LEFT JOIN rating_categories ON 
+	ratings.rating_category_id = rating_categories.id
+	LEFT JOIN tickets ON ratings.ticket_id = tickets.id
+		WHERE ( 
+			ratings.created_at BETWEEN DATE("` + from + `") 
+			AND DATE("` + to + `")
+			AND rating_categories.weight > 0 
+			AND SCORE NOT NULL
+			AND ratings.rating > 0
+		)
+	ORDER BY TKTID`
+	rows, err := s.Database.Query(sqlGet)
+	if err != nil {
+		log.Println("here")
+		return err
+	}
+	var prevTicketID int32 = 0
+	var ticketResult = make(map[int32]map[string]int32)
+	for rows.Next() {
+		var sc sql.NullInt32
+		var tkid sql.NullInt32
+		var ctg sql.NullString
+		e := rows.Scan(&ctg, &tkid, &sc)
+		if e != nil {
+			log.Fatal(e)
+		}
+		category := ctg.String
+		ticketID := tkid.Int32
+		score := sc.Int32
+		if prevTicketID == 0 {
+			prevTicketID = ticketID
+		}
+		if ticketResult[ticketID] == nil {
+			ticketResult[ticketID] = make(map[string]int32)
+		}
+		//Add score precentage to the category
+		ticketResult[ticketID][category] = score
+		if prevTicketID != ticketID {
+			id := service.ID{
+				Id: prevTicketID,
+			}
+			res := service.TicketScores{
+				Id:     &id,
+				Result: make([]*service.CategoryResult, 0),
+			}
+			for k, v := range ticketResult[prevTicketID] {
+				ctRes := &service.CategoryResult{
+					Score:        v,
+					CategoryName: k,
+				}
+				res.Result = append(res.Result, ctRes)
+			}
+			delete(ticketResult, ticketID)
+			if err := stream.Send(&res); err != nil {
+				fmt.Println(err)
+				return err
+			}
+		}
+		prevTicketID = ticketID
+	}
 	return nil
 }
 

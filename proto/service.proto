@@ -13,10 +13,6 @@ message Period {
     int32 day = 3; //required
 }
 
-message Tickets {
-    repeated ID ids = 1; //required
-}
-
 //Aggreated category response
 message Categories {
     repeated CategoryResult result = 1;
@@ -29,7 +25,7 @@ message CategoryResult {
 }
 
 service TicketService {
-    rpc GetScoresByTickets(Tickets) returns (stream TicketScores);
+    rpc GetScoresByTickets(DateRange) returns (stream TicketScores);
     rpc GetAggregatedCategory(DateRange) returns (stream Categories);
     rpc GetPeriodOverPeriod(DateRange) returns (PeriodChange);
     rpc GetOveralQuality(DateRange) returns (Quality);
