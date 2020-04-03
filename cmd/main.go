@@ -7,6 +7,7 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
+	"net/http"
 
 	service "github.com/softwareengineer-test-task/proto"
 
@@ -40,7 +41,7 @@ func main() {
 		if err != nil {
 			panic(err)
 		}
-		var toUser string = ""
+		var results []*service.Categories
 		for {
 			cat, err := stream.Recv()
 			if err == io.EOF {
@@ -51,8 +52,12 @@ func main() {
 			if err != nil {
 				log.Fatal(err)
 			}
-			fmt.Println(toUser)
+
+			results = append(results, cat)
 		}
+		ctx.JSON(http.StatusOK, gin.H{
+			"results": results,
+		})
 		return
 	})
 

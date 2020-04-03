@@ -20,11 +20,11 @@ message Tickets {
 //Aggreated category response
 message Categories {
     repeated CategoryResult result = 1;
+    Period date = 3;
 }
 message CategoryResult {
     string category_name = 1;
     int32 rating = 2;
-    Period date = 3;
     int32 score = 4;
 }
 
