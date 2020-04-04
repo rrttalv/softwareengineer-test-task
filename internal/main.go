@@ -75,6 +75,7 @@ func (s *server) GetAggregatedCategory(filter *service.DateRange, stream service
 		log.Println("here")
 		return err
 	}
+	defer rows.Close()
 	var prevStrDate string = ""
 	//GO maps are hashmaps so the lookup time is O(1)
 	var dailyResult = make(map[string]map[string]int32)
@@ -151,13 +152,13 @@ func (s *server) GetScoresByTickets(filter *service.DateRange, stream service.Ti
 			AND rating_categories.weight > 0 
 			AND SCORE NOT NULL
 			AND ratings.rating > 0
-		)
-	ORDER BY TKTID`
+		)`
 	rows, err := s.Database.Query(sqlGet)
 	if err != nil {
 		log.Println("here")
 		return err
 	}
+	defer rows.Close()
 	var prevTicketID int32 = 0
 	var ticketResult = make(map[int32]map[string]int32)
 	for rows.Next() {
@@ -180,11 +181,8 @@ func (s *server) GetScoresByTickets(filter *service.DateRange, stream service.Ti
 		//Add score precentage to the category
 		ticketResult[ticketID][category] = score
 		if prevTicketID != ticketID {
-			id := service.ID{
-				Id: prevTicketID,
-			}
 			res := service.TicketScores{
-				Id:     &id,
+				Id:     prevTicketID,
 				Result: make([]*service.CategoryResult, 0),
 			}
 			for k, v := range ticketResult[prevTicketID] {

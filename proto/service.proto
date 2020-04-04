@@ -34,12 +34,8 @@ service TicketService {
 //Scores by ticket response
 //Returns an array of tickets which include ticket ID and categories
 message TicketScores {
-    ID id = 1;
-    repeated CategoryResult result = 2;
-}
-
-message ID {
     int32 id = 1;
+    repeated CategoryResult result = 2;
 }
 
 //Overal quality score response

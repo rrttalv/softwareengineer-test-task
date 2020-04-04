@@ -1,3 +1,7 @@
+## Comments and thoughts
+
+**Database query ideas and explanations in ./dbquerys.sql file**
+
 # Software Engineer Test Task
 
 As a test task for [Klaus](https://www.klausapp.com) software engineering position we ask our candidates to build a small [gRPC](https://grpc.io) service using language of their choice. Prefered language for new services in Klaus is [Go](https://golang.org).
