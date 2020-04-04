@@ -133,6 +133,7 @@ func (s *server) GetAggregatedCategory(filter *service.DateRange, stream service
 				Result: cat,
 				Date:   <-dch,
 			}
+			//Clear up memory
 			delete(dailyResult, prevStrDate)
 			if err := stream.Send(result); err != nil {
 				return err
@@ -146,8 +147,6 @@ func (s *server) GetAggregatedCategory(filter *service.DateRange, stream service
 
 func (s *server) GetScoresByTickets(filter *service.DateRange, stream service.TicketService_GetScoresByTicketsServer) error {
 	from, to, _ := s.Helper.ParseDateFromFilter(filter)
-	log.Println(from)
-	log.Println(to)
 	sqlGet := `SELECT rating_categories.name as Category,
 	tickets.id AS TKTID,
 	ROUND((((ratings.rating * rating_categories.weight)*100)/(rating_categories.weight*5))) as SCORE	
