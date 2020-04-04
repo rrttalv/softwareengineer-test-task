@@ -6,9 +6,9 @@
 
 Used the following formula: 
     ((x * y)/100)/z)
-    - x = Total rating which can range from 0 - 5
-    - y = The rating's weight in rating categories table
-    - z = Sum of all rating category weights
+* x = Total rating which can range from 0 - 5
+* y = The rating's weight in rating categories table
+* z = Sum of all rating category weights
 This algorithm was applied on the database level
 
 # Software Engineer Test Task

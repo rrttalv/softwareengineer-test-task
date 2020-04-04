@@ -2,6 +2,11 @@ syntax = "proto3";
 
 package service;
 
+message DoubleDateRange {
+    DateRange selected_period = 1;
+    DateRange previous_period = 2; 
+}
+
 message DateRange {
     Period period_from = 1; //required
     Period period_to = 2; //required
@@ -27,7 +32,7 @@ message CategoryResult {
 service TicketService {
     rpc GetScoresByTickets(DateRange) returns (stream TicketScores);
     rpc GetAggregatedCategory(DateRange) returns (stream Categories);
-    rpc GetPeriodOverPeriod(DateRange) returns (PeriodChange);
+    rpc GetPeriodOverPeriod(DoubleDateRange) returns (PeriodChange);
     rpc GetOveralQuality(DateRange) returns (Quality);
 }
 

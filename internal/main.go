@@ -218,9 +218,6 @@ func (s *server) GetScoresByTickets(filter *service.DateRange, stream service.Ti
 
 func (s *server) GetOveralQuality(ctx context.Context, request *service.DateRange) (*service.Quality, error) {
 	from, to, _ := s.Helper.ParseDateFromFilter(request)
-	fmt.Println(from)
-	fmt.Println("========")
-	fmt.Println(to)
 	sqlGet := `
 	SELECT COUNT(*) as TCount, SUM(rtg) as TSum FROM (
 		SELECT (((ratings.rating * rating_categories.weight)*100)/(` + fmt.Sprintf("%v", s.Weight) + `)) as rtg
@@ -251,7 +248,6 @@ func (s *server) GetOveralQuality(ctx context.Context, request *service.DateRang
 			return nil, errors.New("Missing values in database or invalid date range")
 		}
 		p := (int32(s) / c)
-		log.Println()
 		result = &service.Quality{
 			Precentage: p,
 		}
@@ -259,6 +255,6 @@ func (s *server) GetOveralQuality(ctx context.Context, request *service.DateRang
 	return result, nil
 }
 
-func (s *server) GetPeriodOverPeriod(ctx context.Context, request *service.DateRange) (*service.PeriodChange, error) {
+func (s *server) GetPeriodOverPeriod(ctx context.Context, ranges *service.DoubleDateRange) (*service.PeriodChange, error) {
 	return nil, nil
 }
