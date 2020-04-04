@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"log"
 	"net"
@@ -13,6 +14,10 @@ import (
 	service "github.com/softwareengineer-test-task/proto"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
+)
+
+const (
+	dbErrorString = "Error while querying database: "
 )
 
 type server struct {
@@ -49,7 +54,7 @@ func main() {
 	service.RegisterTicketServiceServer(srv, server)
 	reflection.Register(srv)
 	if serr := srv.Serve(listener); serr != nil {
-		panic(err)
+		panic(serr)
 	}
 }
 
@@ -76,7 +81,7 @@ func (s *server) GetAggregatedCategory(filter *service.DateRange, stream service
 	ORDER BY ratings.created_at`
 	rows, err := s.Database.Query(sqlGet)
 	if err != nil {
-		log.Println("here")
+		log.Printf("%v: %v", dbErrorString, err.Error())
 		return err
 	}
 	defer rows.Close()
@@ -90,7 +95,7 @@ func (s *server) GetAggregatedCategory(filter *service.DateRange, stream service
 		var rating sql.NullInt32
 		e := rows.Scan(&SRAD, &Category, &rating)
 		if e != nil {
-			log.Fatal(e)
+			return e
 		}
 		categoryString := Category.String
 		formattedDate := SRAD.String
@@ -142,7 +147,7 @@ func (s *server) GetAggregatedCategory(filter *service.DateRange, stream service
 		}
 		prevStrDate = formattedDate
 	}
-	return nil
+	return errors.New("Database is empty or entered date range is invalid")
 }
 
 func (s *server) GetScoresByTickets(filter *service.DateRange, stream service.TicketService_GetScoresByTicketsServer) error {
@@ -163,7 +168,7 @@ func (s *server) GetScoresByTickets(filter *service.DateRange, stream service.Ti
 		)`
 	rows, err := s.Database.Query(sqlGet)
 	if err != nil {
-		log.Println("here")
+		log.Printf("%v: %v", dbErrorString, err.Error())
 		return err
 	}
 	defer rows.Close()
@@ -175,7 +180,7 @@ func (s *server) GetScoresByTickets(filter *service.DateRange, stream service.Ti
 		var ctg sql.NullString
 		e := rows.Scan(&ctg, &tkid, &sc)
 		if e != nil {
-			log.Fatal(e)
+			return e
 		}
 		category := ctg.String
 		ticketID := tkid.Int32
@@ -212,35 +217,39 @@ func (s *server) GetScoresByTickets(filter *service.DateRange, stream service.Ti
 }
 
 func (s *server) GetOveralQuality(ctx context.Context, request *service.DateRange) (*service.Quality, error) {
-	return nil, nil
+	from, to, _ := s.Helper.ParseDateFromFilter(request)
+	sqlGet := `
+	SELECT COUNT(*) as TCount, SUM(rtg) as TSum FROM (
+		SELECT ROUND((((ratings.rating * rating_categories.weight)*100)/(` + fmt.Sprintf("%v", s.Weight) + `))) as rtg
+		from ratings
+		LEFT JOIN rating_categories ON ratings.rating_category_id = rating_categories.id
+		WHERE (
+			ratings.created_at BETWEEN DATE("` + fmt.Sprintf("%v", from) + `") 
+			AND DATE("` + fmt.Sprintf("%v", to) + `")
+			AND rating_categories.weight > 0 
+			AND rtg NOT NULL
+			AND ratings.rating > 0
+		)
+	)`
+	rows, err := s.Database.Query(sqlGet)
+	if err != nil {
+		log.Printf("%v: %v", dbErrorString, err.Error())
+		return nil, err
+	}
+	defer rows.Close()
+	var result *service.Quality
+	for rows.Next() {
+		var count sql.NullInt32
+		var sum sql.NullInt32
+		rows.Scan(&count, &sum)
+		p := (sum.Int32 / count.Int32)
+		result = &service.Quality{
+			Precentage: p,
+		}
+	}
+	return result, nil
 }
 
 func (s *server) GetPeriodOverPeriod(ctx context.Context, request *service.DateRange) (*service.PeriodChange, error) {
 	return nil, nil
-}
-
-/*
-	map[int]map[int]int is this: INT - ID of rating, INT - RatingValue = INT - RatingWeight
-	Ratings are calculated in the following manner:
-	take the rating value and multiply it with it's weight, then divide the result by the
-	weights with maximum values which is 5 in our case.
-	finally return an int32 as precentage
-
-func calculateRatingPrecentage(totalWeight int, ratings map[int]Rating) int {
-	var finalRatingPrecentage = 0
-	for _, r := range ratings {
-		fv := r.Value
-		var ratingVal = int(r.Weight * float64(fv))
-		finalRatingPrecentage += (ratingVal * 100) / int(totalWeight*5)
-	}
-	return finalRatingPrecentage
-}
-*/
-
-func dateToString(m int32, d int32, y int32) string {
-	var res string
-	res += fmt.Sprintf("%v-", y)
-	res += fmt.Sprintf("%v-", m)
-	res += fmt.Sprintf("%v", d)
-	return res
 }

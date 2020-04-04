@@ -2,6 +2,15 @@
 
 **Database query ideas and explanations in ./dbquerys.sql file**
 
+#### Aggregate rating algorithm explained
+
+Used the following formula: 
+    ((x * y)/100)/z)
+    - x = Total rating which can range from 0 - 5
+    - y = The rating's weight in rating categories table
+    - z = Sum of all rating category weights
+This algorithm was applied on the database level
+
 # Software Engineer Test Task
 
 As a test task for [Klaus](https://www.klausapp.com) software engineering position we ask our candidates to build a small [gRPC](https://grpc.io) service using language of their choice. Prefered language for new services in Klaus is [Go](https://golang.org).

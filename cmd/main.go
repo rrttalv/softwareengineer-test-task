@@ -37,6 +37,7 @@ func main() {
 	}
 	router.POST("/aggregated", cs.GetAggregated)
 	router.POST("/byticket", cs.GetScoresByTicket)
+	router.POST("/quality", cs.GetOveralQuality)
 	if err := router.Run(port); err != nil {
 		panic(err)
 	}
@@ -69,6 +70,25 @@ func (cs *clientServer) GetAggregated(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, gin.H{
 		"results": results,
 	})
+	return
+}
+
+func (cs *clientServer) GetOveralQuality(ctx *gin.Context) {
+	dateRange := &service.DateRange{}
+	b, _ := ioutil.ReadAll(ctx.Request.Body)
+	err := json.Unmarshal(b, &dateRange)
+	if err != nil {
+		panic(err)
+	}
+	if result, err := cs.client.GetOveralQuality(context.Background(), dateRange); err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"Error": err.Error(),
+		})
+	} else {
+		ctx.JSON(http.StatusOK, gin.H{
+			"Result": result,
+		})
+	}
 	return
 }
 
