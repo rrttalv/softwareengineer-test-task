@@ -148,7 +148,7 @@ func (s *server) GetAggregatedCategory(filter *service.DateRange, stream service
 		}
 		prevStrDate = formattedDate
 	}
-	return errors.New("Database is empty or entered date range is invalid")
+	return nil
 }
 
 func (s *server) GetScoresByTickets(filter *service.DateRange, stream service.TicketService_GetScoresByTicketsServer) error {
@@ -272,7 +272,7 @@ func (s *server) GetPeriodOverPeriod(ctx context.Context, ranges *service.Double
 		close(ch)
 		close(errch)
 	}()
-	finalResult := service.PeriodChange{}
+	finalResult := &service.PeriodChange{}
 	var resultCalc int32 = 0
 	for err := range errch {
 		return nil, err
@@ -285,7 +285,7 @@ func (s *server) GetPeriodOverPeriod(ctx context.Context, ranges *service.Double
 		}
 	}
 	finalResult.Change = resultCalc
-	return &finalResult, nil
+	return finalResult, nil
 }
 
 func (s *server) ReadPeriodOverPeriodRows(query string, ch chan map[string]int32, ech chan error, wg *sync.WaitGroup, isLast bool) {

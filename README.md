@@ -11,6 +11,49 @@ Used the following formula:
 * z = Sum of all rating category weights
 This algorithm was applied on the database level
 
+#### Results
+
+For testing in postman:
+
+1. Aggregated category scores:
+    yields a years worth of results in <200ms which is pretty good
+    **URL**: http://localhost:8080/aggregated
+    **JSON BODY**:
+    ```json{
+        "period_from": {"day": 25, "month": 2, "year": 2019},
+        "period_to": {"day": 26, "month": 2, "year": 2020}
+    }```
+2. Scores by ticket:
+    **URL**: http://localhost:8080/byticket
+    **JSON BODY**:
+    ```json{
+        "period_from": {"day": 25, "month": 2, "year": 2019},
+        "period_to": {"day": 26, "month": 2, "year": 2020}
+    }```
+3. Overal quality score:
+    ***note***: Result almost always 20
+    **URL**: http://localhost:8080/quality
+    **JSON BODY**:
+    ```json
+    {
+        "period_from": {"day": 25, "month": 2, "year": 2019},
+        "period_to": {"day": 26, "month": 2, "year": 2020}
+    }```
+4. Period over period query:
+    **note**: Not sure if it's the data, but 99% of the time the result is empty which means my algorithm yielded 0 as the result
+    **URL**: http://localhost:8080/period
+    **JSON BODY**:
+    ```json{
+    "selected_period": {
+        "period_from": {"day": 1, "month": 2, "year": 2019},
+        "period_to": {"day": 31, "month": 9, "year": 2019}
+        },
+    "previous_period": {
+        "period_from": {"day": 1, "month": 10, "year": 2019},
+        "period_to": {"day": 25, "month": 2, "year": 2020}
+        }
+    }```
+
 # Software Engineer Test Task
 
 As a test task for [Klaus](https://www.klausapp.com) software engineering position we ask our candidates to build a small [gRPC](https://grpc.io) service using language of their choice. Prefered language for new services in Klaus is [Go](https://golang.org).
