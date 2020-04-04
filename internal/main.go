@@ -111,12 +111,14 @@ func (s *server) GetAggregatedCategory(filter *service.DateRange, stream service
 			}
 		}
 		if prevStrDate != formattedDate && len(dailyResult[prevStrDate]) > 0 {
-			//Stream data back
-			//Total in range is used to divide the dailyResult and calculate a precentage
+			/*
+				Stream data back
+				Total in range is used to divide the dailyResult and calculate a precentage
+				Date generation is multithreaded, because string manipulation is CPU heavy
+			*/
+			dch := make(chan *service.Period)
+			go s.Helper.GenerateClientDate(prevStrDate, dch)
 			cat := make([]*service.CategoryResult, 0)
-			//log.Println(dailyResult[srad])
-			//ch := make(chan *service.CategoryResult)
-			//dch := make(chan *service.Period)
 			for k, v := range dailyResult[prevStrDate] {
 				tot := int32(dailyCount[k])
 				calc := int32(v / tot)
@@ -127,13 +129,12 @@ func (s *server) GetAggregatedCategory(filter *service.DateRange, stream service
 				}
 				cat = append(cat, &r)
 			}
-			date := s.Helper.GenerateClientDate(prevStrDate)
-			result := service.Categories{
+			result := &service.Categories{
 				Result: cat,
-				Date:   date,
+				Date:   <-dch,
 			}
 			delete(dailyResult, prevStrDate)
-			if err := stream.Send(&result); err != nil {
+			if err := stream.Send(result); err != nil {
 				return err
 			}
 			dailyCount = make(map[string]int)

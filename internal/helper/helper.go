@@ -2,7 +2,6 @@ package helper
 
 import (
 	"fmt"
-	"log"
 	"strconv"
 	"strings"
 	"unicode"
@@ -14,11 +13,11 @@ type Helper struct {
 }
 
 func (h *Helper) ParseDateFromFilter(f *service.DateRange) (string, string, bool) {
-	monF, monT, dayF, dayT := f.PeriodFrom.GetMonth(), f.PeriodTo.GetMonth(), f.PeriodFrom.GetDay(), f.PeriodTo.GetDay()+1
+	monF, monT, dayF, dayT, yearF, yearT := f.PeriodFrom.GetMonth(), f.PeriodTo.GetMonth(), f.PeriodFrom.GetDay(),
+		f.PeriodTo.GetDay()+1, f.PeriodFrom.GetYear(), f.PeriodTo.GetYear()
 	smonF, smonT, sdayF, sdayT := h.ParseDate(monF), h.ParseDate(monT), h.ParseDate(dayF), h.ParseDate(dayT)
-	pfrom, pto := fmt.Sprintf("%v-%v-%v", f.PeriodFrom.GetYear(), smonF, sdayF), fmt.Sprintf("%v-%v-%v", f.PeriodTo.GetYear(), smonT, sdayT)
-	log.Println(monF - monT)
-	if monT-monF >= 2 {
+	pfrom, pto := fmt.Sprintf("%v-%v-%v", yearF, smonF, sdayF), fmt.Sprintf("%v-%v-%v", yearT, smonT, sdayT)
+	if yearT > yearF || monT-monF >= 2 {
 		return pfrom, pto, true
 	}
 	/*
@@ -38,7 +37,7 @@ func (h *Helper) ParseDate(date int32) string {
 	return fmt.Sprintf("%v", date)
 }
 
-func (h *Helper) GenerateClientDate(date string) *service.Period {
+func (h *Helper) GenerateClientDate(date string, ch chan *service.Period) {
 	f := func(c rune) bool {
 		return !unicode.IsLetter(c) && !unicode.IsNumber(c)
 	}
@@ -48,7 +47,7 @@ func (h *Helper) GenerateClientDate(date string) *service.Period {
 	year, _ := strconv.Atoi(da[0])
 	month, _ := strconv.Atoi(da[1])
 	day, _ := strconv.Atoi(da[2])
-	return &service.Period{
+	ch <- &service.Period{
 		Day:   int32(day),
 		Month: int32(month),
 		Year:  int32(year),
