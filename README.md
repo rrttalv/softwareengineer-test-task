@@ -1,4 +1,4 @@
-## Comments and thoughts
+### Comments and thoughts
 
 **Database query ideas and explanations in ./dbquerys.sql file**
 
@@ -11,6 +11,11 @@ Used the following formula:
 * z = Sum of all rating category weights
 This algorithm was applied on the database level
 
+#### Project structure
+
+* `./cmd/main.go` houses the client which will proxy requests to the gRPC service
+* `./internal/main.go` houses gRPC business logic
+
 #### Results
 
 For testing in postman:
@@ -22,14 +27,14 @@ For testing in postman:
     ```json
         "period_from": {"day": 25, "month": 2, "year": 2019},
         "period_to": {"day": 26, "month": 2, "year": 2020}
-        
+
 2. Scores by ticket:
     **URL**: http://localhost:8080/byticket
     **JSON BODY**:
     ```json
         "period_from": {"day": 25, "month": 2, "year": 2019},
         "period_to": {"day": 26, "month": 2, "year": 2020}
-        
+
 3. Overal quality score:
     ***note***: Result almost always 20
     **URL**: http://localhost:8080/quality
@@ -37,7 +42,7 @@ For testing in postman:
     ```json
         "period_from": {"day": 25, "month": 2, "year": 2019},
         "period_to": {"day": 26, "month": 2, "year": 2020}
-        
+
 4. Period over period query:
     **note**: Not sure if it's the data, but 99% of the time the result is empty which means my algorithm yielded 0 as the result
     **URL**: http://localhost:8080/period
