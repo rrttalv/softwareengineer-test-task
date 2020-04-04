@@ -218,9 +218,12 @@ func (s *server) GetScoresByTickets(filter *service.DateRange, stream service.Ti
 
 func (s *server) GetOveralQuality(ctx context.Context, request *service.DateRange) (*service.Quality, error) {
 	from, to, _ := s.Helper.ParseDateFromFilter(request)
+	fmt.Println(from)
+	fmt.Println("========")
+	fmt.Println(to)
 	sqlGet := `
 	SELECT COUNT(*) as TCount, SUM(rtg) as TSum FROM (
-		SELECT ROUND((((ratings.rating * rating_categories.weight)*100)/(` + fmt.Sprintf("%v", s.Weight) + `))) as rtg
+		SELECT (((ratings.rating * rating_categories.weight)*100)/(` + fmt.Sprintf("%v", s.Weight) + `)) as rtg
 		from ratings
 		LEFT JOIN rating_categories ON ratings.rating_category_id = rating_categories.id
 		WHERE (
@@ -240,9 +243,15 @@ func (s *server) GetOveralQuality(ctx context.Context, request *service.DateRang
 	var result *service.Quality
 	for rows.Next() {
 		var count sql.NullInt32
-		var sum sql.NullInt32
+		var sum sql.NullFloat64
 		rows.Scan(&count, &sum)
-		p := (sum.Int32 / count.Int32)
+		s := sum.Float64
+		c := count.Int32
+		if c == 0 || s == 0 {
+			return nil, errors.New("Missing values in database or invalid date range")
+		}
+		p := (int32(s) / c)
+		log.Println()
 		result = &service.Quality{
 			Precentage: p,
 		}

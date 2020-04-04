@@ -48,11 +48,13 @@ func (cs *clientServer) GetAggregated(ctx *gin.Context) {
 	b, _ := ioutil.ReadAll(ctx.Request.Body)
 	err := json.Unmarshal(b, &dateRange)
 	if err != nil {
-		panic(err)
+		sendErr(ctx, err)
+		return
 	}
 	stream, err := cs.client.GetAggregatedCategory(context.Background(), dateRange)
 	if err != nil {
-		panic(err)
+		sendErr(ctx, err)
+		return
 	}
 	var results []*service.Categories
 	for {
@@ -78,7 +80,8 @@ func (cs *clientServer) GetOveralQuality(ctx *gin.Context) {
 	b, _ := ioutil.ReadAll(ctx.Request.Body)
 	err := json.Unmarshal(b, &dateRange)
 	if err != nil {
-		panic(err)
+		sendErr(ctx, err)
+		return
 	}
 	if result, err := cs.client.GetOveralQuality(context.Background(), dateRange); err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{
@@ -97,11 +100,13 @@ func (cs *clientServer) GetScoresByTicket(ctx *gin.Context) {
 	b, _ := ioutil.ReadAll(ctx.Request.Body)
 	err := json.Unmarshal(b, &dateRange)
 	if err != nil {
-		panic(err)
+		sendErr(ctx, err)
+		return
 	}
 	stream, err := cs.client.GetScoresByTickets(context.Background(), dateRange)
 	if err != nil {
-		panic(err)
+		sendErr(ctx, err)
+		return
 	}
 	var results []*service.TicketScores
 	for {
@@ -119,4 +124,8 @@ func (cs *clientServer) GetScoresByTicket(ctx *gin.Context) {
 		"results": results,
 	})
 	return
+}
+
+func sendErr(ctx *gin.Context, err error) {
+	ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 }

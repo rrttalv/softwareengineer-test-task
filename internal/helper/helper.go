@@ -14,7 +14,10 @@ type Helper struct {
 
 func (h *Helper) ParseDateFromFilter(f *service.DateRange) (string, string, bool) {
 	monF, monT, dayF, dayT, yearF, yearT := f.PeriodFrom.GetMonth(), f.PeriodTo.GetMonth(), f.PeriodFrom.GetDay(),
-		f.PeriodTo.GetDay()+1, f.PeriodFrom.GetYear(), f.PeriodTo.GetYear()
+		f.PeriodTo.GetDay(), f.PeriodFrom.GetYear(), f.PeriodTo.GetYear()
+	if dayT < 31 {
+		dayT = dayT + 1
+	}
 	smonF, smonT, sdayF, sdayT := h.ParseDate(monF), h.ParseDate(monT), h.ParseDate(dayF), h.ParseDate(dayT)
 	pfrom, pto := fmt.Sprintf("%v-%v-%v", yearF, smonF, sdayF), fmt.Sprintf("%v-%v-%v", yearT, smonT, sdayT)
 	if yearT > yearF || monT-monF >= 2 {
