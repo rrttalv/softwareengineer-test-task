@@ -11,10 +11,12 @@ Used the following formula:
 * z = Sum of all rating category weights
 This algorithm was applied on the database level
 
-#### Project structure
+#### Project structure and build info
 
 * `./cmd/main.go` houses the client which will proxy requests to the gRPC service
-* `./internal/main.go` houses gRPC business logic
+* `./internal/main.go` houses gRPC business logic and DB operations
+
+To run the project in development, run `go run main.go` in the `client` folder and `go run main.go` in the `internal` folder.
 
 #### Results
 
