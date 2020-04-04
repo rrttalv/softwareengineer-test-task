@@ -38,6 +38,7 @@ func main() {
 	router.POST("/aggregated", cs.GetAggregated)
 	router.POST("/byticket", cs.GetScoresByTicket)
 	router.POST("/quality", cs.GetOveralQuality)
+	router.POST("/period", cs.GetPeriodOverPeriod)
 	if err := router.Run(port); err != nil {
 		panic(err)
 	}
@@ -123,6 +124,24 @@ func (cs *clientServer) GetScoresByTicket(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, gin.H{
 		"results": results,
 	})
+	return
+}
+
+func (cs *clientServer) GetPeriodOverPeriod(ctx *gin.Context) {
+	dateRange := &service.DoubleDateRange{}
+	b, _ := ioutil.ReadAll(ctx.Request.Body)
+	err := json.Unmarshal(b, &dateRange)
+	if err != nil {
+		sendErr(ctx, err)
+		return
+	}
+	if result, err := cs.client.GetPeriodOverPeriod(context.Background(), dateRange); err != nil {
+		sendErr(ctx, err)
+	} else {
+		ctx.JSON(http.StatusOK, gin.H{
+			"result": result,
+		})
+	}
 	return
 }
 

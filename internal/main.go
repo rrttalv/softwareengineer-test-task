@@ -8,6 +8,7 @@ import (
 	"log"
 	"net"
 	"strconv"
+	"sync"
 
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/softwareengineer-test-task/internal/helper"
@@ -256,5 +257,75 @@ func (s *server) GetOveralQuality(ctx context.Context, request *service.DateRang
 }
 
 func (s *server) GetPeriodOverPeriod(ctx context.Context, ranges *service.DoubleDateRange) (*service.PeriodChange, error) {
-	return nil, nil
+	errch := make(chan error)
+	ch := make(chan map[string]int32, 2)
+	var wg sync.WaitGroup
+	f, t, _ := s.Helper.ParseDateFromFilter(ranges.GetSelectedPeriod())
+	pf, pt, _ := s.Helper.ParseDateFromFilter(ranges.GetPreviousPeriod())
+	sqlGetSelected := s.GeneratePeriodOverPeriodSelect(f, t)
+	sqlGetPrevious := s.GeneratePeriodOverPeriodSelect(pf, pt)
+	wg.Add(2)
+	go s.ReadPeriodOverPeriodRows(sqlGetSelected, ch, errch, &wg, false)
+	go s.ReadPeriodOverPeriodRows(sqlGetPrevious, ch, errch, &wg, true)
+	go func() {
+		wg.Wait()
+		close(ch)
+		close(errch)
+	}()
+	finalResult := service.PeriodChange{}
+	var resultCalc int32 = 0
+	for result := range ch {
+		if result["first"] > 0 {
+			resultCalc += result["first"]
+		} else {
+			resultCalc -= result["last"]
+		}
+	}
+	finalResult.Change = resultCalc
+	return &finalResult, nil
+}
+
+func (s *server) ReadPeriodOverPeriodRows(query string, ch chan map[string]int32, ech chan error, wg *sync.WaitGroup, isLast bool) {
+	defer wg.Done()
+	rows, err := s.Database.Query(query)
+	log.Println(query)
+	if err != nil {
+		ech <- err
+		return
+	}
+	defer rows.Close()
+	var key = "first"
+	result := make(map[string]int32)
+	if isLast {
+		key = "last"
+	}
+	for rows.Next() {
+		var count sql.NullInt32
+		var sum sql.NullFloat64
+		rows.Scan(&count, &sum)
+		s := sum.Float64
+		c := count.Int32
+		if c == 0 || s == 0 {
+			ech <- errors.New("Empty database or invalid date range")
+		} else {
+			result[key] = int32(int32(s) / c)
+		}
+	}
+	ch <- result
+	return
+}
+
+func (s *server) GeneratePeriodOverPeriodSelect(f string, t string) string {
+	return `SELECT COUNT(*) as TCount, SUM(rtg) as TSum FROM (
+		SELECT (((ratings.rating * rating_categories.weight)*100)/(` + fmt.Sprintf("%v", s.Weight) + `)) as rtg
+		from ratings
+		LEFT JOIN rating_categories ON ratings.rating_category_id = rating_categories.id
+		WHERE (
+			ratings.created_at BETWEEN DATE("` + fmt.Sprintf("%v", f) + `") 
+			AND DATE("` + fmt.Sprintf("%v", t) + `")
+			AND rating_categories.weight > 0 
+			AND rtg NOT NULL
+			AND ratings.rating > 0
+		)
+	)`
 }
