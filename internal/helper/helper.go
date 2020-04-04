@@ -2,6 +2,7 @@ package helper
 
 import (
 	"fmt"
+	"log"
 	"strconv"
 	"strings"
 	"unicode"
@@ -12,10 +13,22 @@ import (
 type Helper struct {
 }
 
-func (h *Helper) ParseDateFromFilter(f *service.DateRange) (string, string) {
+func (h *Helper) ParseDateFromFilter(f *service.DateRange) (string, string, bool) {
 	monF, monT, dayF, dayT := f.PeriodFrom.GetMonth(), f.PeriodTo.GetMonth(), f.PeriodFrom.GetDay(), f.PeriodTo.GetDay()+1
 	smonF, smonT, sdayF, sdayT := h.ParseDate(monF), h.ParseDate(monT), h.ParseDate(dayF), h.ParseDate(dayT)
-	return fmt.Sprintf("%v-%v-%v", f.PeriodFrom.GetYear(), smonF, sdayF), fmt.Sprintf("%v-%v-%v", f.PeriodTo.GetYear(), smonT, sdayT)
+	pfrom, pto := fmt.Sprintf("%v-%v-%v", f.PeriodFrom.GetYear(), smonF, sdayF), fmt.Sprintf("%v-%v-%v", f.PeriodTo.GetYear(), smonT, sdayT)
+	log.Println(monF - monT)
+	if monT-monF >= 2 {
+		return pfrom, pto, true
+	}
+	/*
+		If monF minus month to is equal to 1 and the day range is greater than zero
+		then weekly is true
+	*/
+	if monT-monF == 1 && dayT-dayF > 0 {
+		return pfrom, pto, true
+	}
+	return pfrom, pto, false
 }
 
 func (h *Helper) ParseDate(date int32) string {
@@ -36,8 +49,8 @@ func (h *Helper) GenerateClientDate(date string) *service.Period {
 	month, _ := strconv.Atoi(da[1])
 	day, _ := strconv.Atoi(da[2])
 	return &service.Period{
-		Year:  int32(year),
 		Day:   int32(day),
 		Month: int32(month),
+		Year:  int32(year),
 	}
 }

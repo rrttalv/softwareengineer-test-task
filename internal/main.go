@@ -54,8 +54,12 @@ func main() {
 }
 
 func (s *server) GetAggregatedCategory(filter *service.DateRange, stream service.TicketService_GetAggregatedCategoryServer) error {
-	from, to := s.Helper.ParseDateFromFilter(filter)
-	sqlGet := `SELECT substr(ratings.created_at, 1, 10) as SRAD,
+	from, to, isWeekly := s.Helper.ParseDateFromFilter(filter)
+	selectDateRange := `DATE(ratings.created_at, "weekday 0")`
+	if !isWeekly {
+		selectDateRange = "substr(ratings.created_at, 1, 10)"
+	}
+	sqlGet := `SELECT ` + selectDateRange + ` AS SRAD,
 	rating_categories.name as Category,
 	ROUND((((ratings.rating * rating_categories.weight)*100)/(` + fmt.Sprintf("%v", s.Weight) + `))) as rtg
 	from ratings 
@@ -111,6 +115,8 @@ func (s *server) GetAggregatedCategory(filter *service.DateRange, stream service
 			//Total in range is used to divide the dailyResult and calculate a precentage
 			cat := make([]*service.CategoryResult, 0)
 			//log.Println(dailyResult[srad])
+			//ch := make(chan *service.CategoryResult)
+			//dch := make(chan *service.Period)
 			for k, v := range dailyResult[prevStrDate] {
 				tot := int32(dailyCount[k])
 				calc := int32(v / tot)
@@ -138,7 +144,9 @@ func (s *server) GetAggregatedCategory(filter *service.DateRange, stream service
 }
 
 func (s *server) GetScoresByTickets(filter *service.DateRange, stream service.TicketService_GetScoresByTicketsServer) error {
-	from, to := s.Helper.ParseDateFromFilter(filter)
+	from, to, _ := s.Helper.ParseDateFromFilter(filter)
+	log.Println(from)
+	log.Println(to)
 	sqlGet := `SELECT rating_categories.name as Category,
 	tickets.id AS TKTID,
 	ROUND((((ratings.rating * rating_categories.weight)*100)/(rating_categories.weight*5))) as SCORE	
