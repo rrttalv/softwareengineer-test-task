@@ -274,6 +274,9 @@ func (s *server) GetPeriodOverPeriod(ctx context.Context, ranges *service.Double
 	}()
 	finalResult := service.PeriodChange{}
 	var resultCalc int32 = 0
+	for err := range errch {
+		return nil, err
+	}
 	for result := range ch {
 		if result["first"] > 0 {
 			resultCalc += result["first"]
@@ -307,9 +310,9 @@ func (s *server) ReadPeriodOverPeriodRows(query string, ch chan map[string]int32
 		c := count.Int32
 		if c == 0 || s == 0 {
 			ech <- errors.New("Empty database or invalid date range")
-		} else {
-			result[key] = int32(int32(s) / c)
+			return
 		}
+		result[key] = int32(int32(s) / c)
 	}
 	ch <- result
 	return

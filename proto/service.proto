@@ -50,7 +50,5 @@ message Quality {
 
 //Period over period response
 message PeriodChange {
-    Period selected = 1;
-    Period previous = 2;
     int32 change = 3;
 }
