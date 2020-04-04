@@ -291,8 +291,8 @@ func (s *server) GetPeriodOverPeriod(ctx context.Context, ranges *service.Double
 func (s *server) ReadPeriodOverPeriodRows(query string, ch chan map[string]int32, ech chan error, wg *sync.WaitGroup, isLast bool) {
 	defer wg.Done()
 	rows, err := s.Database.Query(query)
-	log.Println(query)
 	if err != nil {
+		log.Printf("%v: %v", dbErrorString, err.Error())
 		ech <- err
 		return
 	}
